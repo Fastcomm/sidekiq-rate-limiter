@@ -163,6 +163,38 @@ RSpec.describe Sidekiq::RateLimiter::Fetch do
     end
   end
 
+  context 'with the schedule in the future with back off strategy' do
+    before :each do
+      Sidekiq::RateLimiter.configure do |config|
+        config.fetch_strategy = Sidekiq::RateLimiter::ScheduleInFutureWithBackOffStrategy
+      end
+    end
+
+    include_examples 'retrieve_work'
+
+    it 'should place rate-limited work on the scheduled in the future queue', queuing: true do
+      worker.perform_async(*args)
+      expect_any_instance_of(Sidekiq::RateLimiter::Limit).to receive(:exceeded?).and_return(true)
+
+      expect_any_instance_of(Sidekiq::RateLimiter::Limit).to receive(:retry_in?).and_return(100)
+
+      fetch = described_class.new(options)
+      expect(fetch.retrieve_work).to be_nil
+
+      # expect the job to move to being scheduled in the future
+      q = Sidekiq::Queue.new(queue)
+      expect(q.size).to eq(0)
+
+      ss = Sidekiq::ScheduledSet.new
+      expect(ss.size).to eq(1)
+      expect(ss.first.item['rate_limited_count']).to eq(1)
+    end
+
+    after :each do
+      Sidekiq::RateLimiter.reset
+    end
+  end
+
   it 'should accept procs for limit, name, and period config keys', queuing: true do
     proc_worker.perform_async(1,2)
 

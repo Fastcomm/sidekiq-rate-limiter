@@ -4,6 +4,8 @@ require 'redis_rate_limiter'
 require 'sidekiq-rate-limiter/basic_strategy'
 require 'sidekiq-rate-limiter/sleep_strategy'
 require 'sidekiq-rate-limiter/schedule_in_future_strategy'
+require 'sidekiq-rate-limiter/schedule_in_future_with_back_off_strategy'
+
 
 module Sidekiq::RateLimiter
   DEFAULT_LIMIT_NAME =
@@ -19,6 +21,7 @@ module Sidekiq::RateLimiter
 
       args      = message['args']
       klass     = message['class']
+      rate_limited_count = message['rate_limited_count'].to_i
       rate      = Rate.new(message)
 
       return work unless !!(klass && rate.valid?)
@@ -33,7 +36,7 @@ module Sidekiq::RateLimiter
         :name     => (name.respond_to?(:call) ? name.call(*args) : name).to_s,
       }
 
-      fetch_strategy.call(work, klass, args, options)
+      fetch_strategy.call(work, klass, args, rate_limited_count, options)
     end
 
     def fetch_strategy

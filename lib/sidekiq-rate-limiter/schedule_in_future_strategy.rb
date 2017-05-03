@@ -1,8 +1,8 @@
 module Sidekiq::RateLimiter
   class ScheduleInFutureStrategy
-    def call(work, klass, args, options)
+    def call(work, klass, args, rate_limited_count, limit_options)
       Sidekiq.redis do |conn|
-        lim = Limit.new(conn, options)
+        lim = Limit.new(conn, limit_options)
         if lim.exceeded?(klass)
 
           # add a random amount of jitter that is proportional to the length of time the retry is in the future.

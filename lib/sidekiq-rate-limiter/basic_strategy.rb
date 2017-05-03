@@ -1,6 +1,6 @@
 module Sidekiq::RateLimiter
   class BasicStrategy
-    def call(work, klass, args, options)
+    def call(work, klass, args, rate_limited_count, options)
       Sidekiq.redis do |conn|
         lim = Limit.new(conn, options)
         if lim.exceeded?(klass)
