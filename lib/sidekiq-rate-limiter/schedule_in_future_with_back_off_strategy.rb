@@ -4,14 +4,14 @@ module Sidekiq::RateLimiter
       Sidekiq.redis do |conn|
         lim = Limit.new(conn, limit_options)
         if lim.exceeded?(klass)
-          rate_limited_count += 1
+          rate_limited_count += 1 if rate_limited_count < 10
 
           limit_expires_in = lim.retry_in?(klass)
 
           # schedule retry for a multiple of the number of times the job has been attempted.
           # this is a basic back-off function which tries to schedule the job at a future time when
           # the system is less busy.
-          retry_in = (limit_expires_in + rand(limit_expires_in/5)) * rate_limited_count
+          retry_in = (limit_expires_in + rand(limit_expires_in)) * rate_limited_count
 
           # Schedule the job to be executed in the future, when we think the rate limit might be back to normal.
           enqueue_to_in(work.queue_name, retry_in, Object.const_get(klass), rate_limited_count, *args)
